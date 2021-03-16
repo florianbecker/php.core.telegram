@@ -36,11 +36,11 @@ function sendMessage($chat_id, $text = [], $multicurl = false)
  * Send message.
  * @param $chat_id
  * @param array $text
- * @param mixed $inline_keyboard
+ * @param array $reply_markup ['inline_keyboard' => $keys]
  * @param array $merge_args
  * @param $multicurl
  */
-function send_message($chat_id, $text = [], $inline_keyboard = false, $merge_args = [], $multicurl = false)
+function send_message($chat_id, $text = [], $reply_markup = null, $merge_args = [], $multicurl = false)
 {
     // Create response content array.
     $reply_content = [
@@ -48,14 +48,13 @@ function send_message($chat_id, $text = [], $inline_keyboard = false, $merge_arg
         'chat_id'    => $chat_id,
         'parse_mode' => 'HTML',
         'text'       => $text
-    ];   
+    ];
 
     // Write to log.
-    debug_log('KEYS');
-    debug_log($inline_keyboard);
+    debug_log('Reply Markup: ' . $reply_markup);
 
-    if (isset($inline_keyboard)) {
-        $reply_content['reply_markup'] = ['inline_keyboard' => $inline_keyboard];
+    if ($reply_markup) { // Expected content is for example: [ 'inline_keyboard' => $keys ]
+        $reply_content['reply_markup'] = $reply_markup;
     }
 
     if (is_array($merge_args) && count($merge_args)) {
@@ -260,7 +259,7 @@ function answerInlineQuery($query_id, $contents)
         'results'         => $results
     ];
 
-    // Encode to json 
+    // Encode to json
     $reply_json = json_encode($reply_content);
 
     // Send request to telegram api.
@@ -616,28 +615,28 @@ function send_photo($chat_id, $photo_url, $text = array(), $inline_keyboard = fa
         'parse_mode' => 'HTML',
         'caption'    => $text
     ];
-    
+
     // Write to log.
     debug_log('KEYS');
     debug_log($inline_keyboard);
-    
+
     if (isset($inline_keyboard)) {
         $reply_content['reply_markup'] = ['inline_keyboard' => $inline_keyboard];
     }
-    
+
     if (is_array($merge_args) && count($merge_args)) {
         $reply_content = array_merge_recursive($reply_content, $merge_args);
     }
-    
+
     // Encode data to json.
     $reply_json = json_encode($reply_content);
-    
+
     // Set header to json.
     header('Content-Type: application/json');
-    
+
     // Write to log.
     debug_log($reply_json, '>');
-    
+
     // Send request to telegram api.
     return curl_request($reply_json, $multicurl);
 }
@@ -748,7 +747,7 @@ function curl_json_request($json)
     curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 5);
     curl_setopt($curl, CURLOPT_TIMEOUT, 10);
     //curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-	
+
     // Use Proxyserver for curl if configured
     if ($config->CURL_USEPROXY && !empty($config->CURL_PROXYSERVER)) {
     	curl_setopt($curl, CURLOPT_PROXY, $config->CURL_PROXYSERVER);
@@ -786,18 +785,18 @@ function curl_json_multi_request($json)
 
     // Curl response.
     $response = array();
- 
+
     // Init multi handle.
     $mh = curl_multi_init();
-    
-    // Init $data as array - since php 5.2 the CURLOPT_POSTFIELDS wants an array 
+
+    // Init $data as array - since php 5.2 the CURLOPT_POSTFIELDS wants an array
     $data = array();
- 
+
     // Loop through json array, create curl handles and add them to the multi-handle.
     foreach ($json as $id => $data) {
         // Init.
         $curly[$id] = curl_init();
- 
+
         // Curl options.
         curl_setopt($curly[$id], CURLOPT_URL, $URL);
         curl_setopt($curly[$id], CURLOPT_HEADER, false);
@@ -805,7 +804,7 @@ function curl_json_multi_request($json)
         curl_setopt($curly[$id], CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curly[$id], CURLOPT_CONNECTTIMEOUT, 5);
         curl_setopt($curly[$id], CURLOPT_TIMEOUT, 10);
-    
+
         // Use Proxyserver for curl if configured.
         if($config->CURL_USEPROXY && !empty($config->CURL_PROXYSERVER)) {
             curl_setopt($curl, CURLOPT_PROXY, $config->CURL_PROXYSERVER);
@@ -820,7 +819,7 @@ function curl_json_multi_request($json)
             array_push($data, str_replace($search,$replace,$data));
         }
 
-        // Curl post. 
+        // Curl post.
         curl_setopt($curly[$id], CURLOPT_POST,       true);
         curl_setopt($curly[$id], CURLOPT_POSTFIELDS, $data);
 
@@ -837,16 +836,16 @@ function curl_json_multi_request($json)
         curl_multi_select($mh);
         curl_multi_exec($mh, $running);
     } while($running > 0);
- 
+
     // Get content and remove handles.
     foreach($curly as $id => $content) {
         $response[$id] = curl_multi_getcontent($content);
         curl_multi_remove_handle($mh, $content);
     }
- 
-    // Close connection. 
+
+    // Close connection.
     curl_multi_close($mh);
- 
+
     // Process response from telegram api.
     foreach($response as $id => $json_response) {
         // Bot specific funtion to process response from telegram api.
